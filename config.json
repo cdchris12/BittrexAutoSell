@@ -1,0 +1,8 @@
+{
+    "APIToken": "abcdef1234567890",
+    "FinalCoin": "USDT",
+    "IgnoredCoins": [
+        "BAT",
+        "MEDX"
+    ]
+}

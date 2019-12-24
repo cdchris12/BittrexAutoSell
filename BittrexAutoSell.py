@@ -1,6 +1,33 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
+import sys
+import os.path
+import json
 import requests as r
+
+if not os.path.exists("config.json"):
+    sys.exit(
+        """
+        No config file found!
+        Please ensure \"config.json\" exists and is readable!
+        """
+    )
+# End if
+
+with open("config.json", "r") as infile:
+    config = json.load(infile)
+    try:
+        assert config.get("APIToken","") != ""
+        assert config.get("FinalCoin","") != ""
+    except:
+        sys.exit(
+        """
+        The \"config.json\" file exists, but is missing data.
+        Please verify this file contains a value for \"APIToken\" and \"FinalCoin\"
+        """
+        )
+    # End try/except
+# End with
 
 
 def getBalances(APIToken="", IgnoredCoins=[]):
@@ -32,7 +59,15 @@ def sellCoin(APIToken="", SourceCoin="", DestCoin=""):
 # End def
 
 def main():
-    pass
+    APIToken = config["APIToken"]
+    FinalCoin = config["FinalCoin"]
+    IgnoredCoins = config.get("IgnoredCoins",[])
+
+    coinsToSell = getBalances(APIToken, IgnoredCoins)
+    
+    for coin in coinsToSell:
+        sellCoin(APIToken, coin, FinalCoin)
+    # End for
 # End def
 
 if __name__ == "__main__" :
