@@ -96,7 +96,7 @@ def getBalances(APIToken, IgnoredCoins=[]):
     return balances
 # End def
 
-def sellCoin(APIToken, SourceCoin, DestCoin):
+def sellCoin(APIToken, SourceCoin, DestCoin, Markets):
     """
     First, determine if a coin can be directly sold from the source
       crypto into the dest crypto
@@ -131,7 +131,7 @@ def main():
     
     # Sell any coins that need to be sold
     for coin in coinsToSell:
-        sellCoin(APIToken, coin, FinalCoin)
+        sellCoin(APIToken, coin, FinalCoin, relevantMarkets)
     # End for
 # End def
 
