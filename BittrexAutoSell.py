@@ -40,17 +40,40 @@ def getMarkets():
     return res.json()
 # End def
 
-def getBalances(APIToken="", IgnoredCoins=[]):
+def getTickerValues(Market):
+    """
+    Make an unauthenticated call to get the current ticket values
+      for a specified market
+    """
+    res = r.get("https://api.bittrex.com/api/v1.1/public/getticker?market=%s" % Market)
+    res.raise_for_status()
+
+    return res.json()
+# End def
+
+def getBalances(APIToken, IgnoredCoins=[]):
     """
     Hit the Bittrex API to get a list of coin wallets with balances.
     Filter any ignored coins from that list
     Iterate over each remaining coin (if any) and process sell orders
       for those coins
     """
-    pass
+    res = r.get("https://api.bittrex.com/api/v1.1/account/getbalances?apikey=%s" % APIToken)
+    res.raise_for_status
+    output = res.json()["result"]
+
+    balances = []
+
+    for crypto in output:
+        if IgnoredCoins and crypto["Currency"] not in IgnoredCoins:
+            balances.append(output[crypto])
+        # End if
+    # End for
+
+    return balances
 # End def
 
-def sellCoin(APIToken="", SourceCoin="", DestCoin=""):
+def sellCoin(APIToken, SourceCoin, DestCoin):
     """
     First, determine if a coin can be directly sold from the source
       crypto into the dest crypto
@@ -69,14 +92,18 @@ def sellCoin(APIToken="", SourceCoin="", DestCoin=""):
 # End def
 
 def main():
+    # Load config data
     APIToken = config["APIToken"]
     FinalCoin = config["FinalCoin"]
     IgnoredCoins = config.get("IgnoredCoins",[])
 
+    # Get list of available markets
     markets = getmarkets()
 
+    # Get list of coins to be sold
     coinsToSell = getBalances(APIToken, IgnoredCoins)
     
+    # Sell any coins that need to be sold
     for coin in coinsToSell:
         sellCoin(APIToken, coin, FinalCoin)
     # End for
