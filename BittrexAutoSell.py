@@ -29,6 +29,16 @@ with open("config.json", "r") as infile:
     # End try/except
 # End with
 
+def getMarkets():
+    """
+    Make an unatuhenticated call to the Bittrex API to get a list
+      of all supported markets
+    """
+    res = r.get("https://api.bittrex.com/api/v1.1/public/getmarkets")
+    res.raise_for_status()
+
+    return res.json()
+# End def
 
 def getBalances(APIToken="", IgnoredCoins=[]):
     """
@@ -62,6 +72,8 @@ def main():
     APIToken = config["APIToken"]
     FinalCoin = config["FinalCoin"]
     IgnoredCoins = config.get("IgnoredCoins",[])
+
+    markets = getmarkets()
 
     coinsToSell = getBalances(APIToken, IgnoredCoins)
     
