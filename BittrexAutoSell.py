@@ -51,6 +51,29 @@ def getTickerValues(Market):
     return res.json()
 # End def
 
+def filterMarkets(walletCoins, markets):
+    """
+    Filter the list of all markets to only contain markets relevant to the
+      coins we hold balances in
+    """
+    coinsWithBalances = []
+    monitoredMarkets = []
+
+    for wallet in walletCoins:
+        if wallet["Balance"] > 0.0:
+            coinsWithBalances.append(wallet["Currency"])
+        # End if
+    # End for
+
+    for market in markets:
+        if market["MarketCurrency"] in coinsWithBalances:
+            monitoredMarkets.append(market)
+        # End if
+    # End for
+
+    return monitoredMarkets
+# End def
+
 def getBalances(APIToken, IgnoredCoins=[]):
     """
     Hit the Bittrex API to get a list of coin wallets with balances.
@@ -102,6 +125,9 @@ def main():
 
     # Get list of coins to be sold
     coinsToSell = getBalances(APIToken, IgnoredCoins)
+
+    # Filter list of all available markets to only contain relevant markets
+    relevantMarkets = filterMarkets(coinsToSell, markets)
     
     # Sell any coins that need to be sold
     for coin in coinsToSell:
