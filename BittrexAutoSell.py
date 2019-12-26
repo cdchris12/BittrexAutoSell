@@ -3,6 +3,9 @@
 import sys
 import os.path
 import json
+import hashlib
+import hmac
+import base64
 import requests as r
 
 if not os.path.exists("config.json"):
@@ -111,7 +114,33 @@ def sellCoin(APIToken, SourceCoin, DestCoin, Markets):
     #  If no:
     #    Call _Sell(APIToken=APIToken, Src=SourceCoin, Dest="BTC")
     #    Call _Sell(APIToken=APIToken, Src="BTC", Dest=DestCoin)
+
+    def _sell(API_Token, Market):
+        """
+        Call getTickerValues to get current values for this market
+        
+        """
+        pass
+    # End def
+
     pass
+# End def
+
+def generateAuth(APIToken, APISecret, Timestamp, ContentToHash, URI, HTTPMethod, Subaccount_ID=""):
+    """
+    To test hashing functions in JS:
+      var CryptoJS = require("crypto-js");
+      var contentHash = CryptoJS.SHA512("{'abc': 123}").toString(CryptoJS.enc.Hex);
+      contentHash;
+    """
+    assert type(ContentToHash) == type("") # Our content should be a string
+    hashedContent = hashlib.sha512(ContentToHash.encode('utf-8')).hexdigest()
+
+    # Signature requires:
+    # Timestamp + URI + Method + hashedContent + Subaccount_ID
+    msg = """%s%s%s%s%s""" % (Timestamp, URI, HTTPMethod, hashedContent, Subaccount_ID)
+
+    digest = hmac.new(APISecret, msg=msg, digestmod=hashlib.sha512).digest()
 # End def
 
 def main():
