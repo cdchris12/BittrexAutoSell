@@ -1,5 +1,6 @@
 {
     "APIToken": "abcdef1234567890",
+    "APISecret": "thisisanapisecret",
     "FinalCoin": "USDT",
     "IgnoredCoins": [
         "BAT",

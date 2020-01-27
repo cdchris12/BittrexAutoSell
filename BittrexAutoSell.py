@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import base64
 import requests as r
+import arrow
 
 if not os.path.exists("config.json"):
     sys.exit(
@@ -83,6 +84,37 @@ def getBalances(APIToken, IgnoredCoins=[]):
     Filter any ignored coins from that list
     Iterate over each remaining coin (if any) and process sell orders
       for those coins
+    
+    Example API return data:
+    {
+      "success": true,
+      "message": "''",
+      "result": [
+        {
+          "Currency": "DOGE",
+          "Balance": 4.21549076,
+          "Available": 4.21549076,
+          "Pending": 0,
+          "CryptoAddress": "DLxcEt3AatMyr2NTatzjsfHNoB9NT62HiF",
+          "Requested": false,
+          "Uuid": null
+        }
+      ]
+    }
+
+    This function will return data as a list of dicts:
+    [
+      {
+        "Currency": "DOGE",
+        "Balance": 4.21549076,
+        "Available": 4.21549076,
+        "Pending": 0,
+        "CryptoAddress": "DLxcEt3AatMyr2NTatzjsfHNoB9NT62HiF",
+        "Requested": false,
+        "Uuid": null
+      }
+    ]
+
     """
     res = r.get("https://api.bittrex.com/api/v1.1/account/getbalances?apikey=%s" % APIToken)
     res.raise_for_status
@@ -99,29 +131,99 @@ def getBalances(APIToken, IgnoredCoins=[]):
     return balances
 # End def
 
-def sellCoin(APIToken, SourceCoin, DestCoin, Markets):
+def sellCoin(APIToken, APISecret, SourceCoin, DestCoin, Markets):
     """
-    First, determine if a coin can be directly sold from the source
-      crypto into the dest crypto
-    If it can, then call _Sell to actually sell the crypto
-    If not, then process the crypto's sale into BTC first, then dest
-      crypto afterwards via two calls to _Sell
+    APIToken: String
+    APISecret: String
+    SourceCoin: coin object
+    DestCoin: String
+    Markets: List of market objects
     """
 
-    # Call the API to see if Src->Dest market exists
-    #  If yes: 
-    #    Call _Sell(APIToken=APIToken, Src=SourceCoin, Dest=DestCoin)
-    #  If no:
-    #    Call _Sell(APIToken=APIToken, Src=SourceCoin, Dest="BTC")
-    #    Call _Sell(APIToken=APIToken, Src="BTC", Dest=DestCoin)
+    def _sell(API_Token, Market, Balance):
+        """
+        This will post a "MARKET" order, which should be immediately filled at whatever market rate is.
+        """
 
-    def _sell(API_Token, Market):
-        """
-        Call getTickerValues to get current values for this market
-        
-        """
+        orderDetails = {
+          "marketSymbol": Market["MarketName"],
+          "direction": "SELL",
+          "type": "MARKET",
+          "quantity": Balance,
+          "timeInForce": "FILL_OR_KILL",
+        }
+
+        #TODO: Flesh out the requests code to make this sell call
+
         pass
     # End def
+
+    def _checkOrder(API_Token, APISecret, UUID):
+        """
+        Returns true/false based on whether an order needs to be retried
+        """
+
+        ts = arrow.now().timestamp * 1000 # Transforms ts from seconds into milliseconds
+        uri = "https://api.bittrex.com/v3/orders/%s" % UUID
+        contentHash, signature = generateAuth(API_Token, APISecret, ts, "", uri, "GET")
+
+        headers = {
+            "Api-Key": API_Token,
+            "Api-Timestamp": ts;
+            "Api-Content-Hash": contentHash;
+            "Api-Signature": signature
+        }
+
+        r = requests.get(uri, headers=headers)
+        r.raise_for_status()
+
+        res = r.json()
+
+        if res["quantity"] != res['fillQuantity']:
+            # Order didn't completely fill; need to signal that the rest should be sold somehow
+            #TODO
+            return False
+        elif res['fillQuantity'] == 0.0:
+            # Order was not filled at all; needs to be reattempted immediately
+            #TODO
+            pass
+        else:
+            # Order filled completely
+            #TODO include timestamp and market in this logging message
+            print("Order filled successfully!")
+            return True
+        # End if/else block
+    # End def
+
+    sellMarkets = []
+
+    # First, check to see if direct market exists, for example "USDT-GRIN"
+    for market in markets:
+        if market["MarketName"] == "%s-%s" % (DestCoin, SourceCoin):
+            sellMarkets.append(market)
+        # End if
+    # End for
+
+    # If direct market doesn's exist, then we need to sell SourceCoin for BTC first and then sell BTC for DestCoin
+    if not sellMarkets:
+        for market in markets:
+            if market["MarketName"] == "%s-%s" % ("BTC", SourceCoin):
+                sellMarkets.append(market)
+            # End if
+        # End for
+
+        for market in markets:
+            if market["MarketName"] == "%s-%s" % ("BTC", DestCoin):
+                sellMarkets.append(market)
+            # End if
+        # End for
+    # End if
+
+    for market in sellMarkets:
+        _sell(APIToken, market, SourceCoin["Available"])
+        #TODO: Figure out a way to confirm this trade went through
+        # or maybe just wait for a few seconds???
+    # End for
 
     pass
 # End def
@@ -140,12 +242,14 @@ def generateAuth(APIToken, APISecret, Timestamp, ContentToHash, URI, HTTPMethod,
     # Timestamp + URI + Method + hashedContent + Subaccount_ID
     msg = """%s%s%s%s%s""" % (Timestamp, URI, HTTPMethod, hashedContent, Subaccount_ID)
     digest = hmac.new(APISecret.encode(), msg=msg.encode(), digestmod=hashlib.sha512).hexdigest()
-    
+
+    return (hashedContent, digest)
 # End def
 
 def main():
     # Load config data
     APIToken = config["APIToken"]
+    APISecret = config["APISecret"]
     FinalCoin = config["FinalCoin"]
     IgnoredCoins = config.get("IgnoredCoins",[])
 
@@ -160,7 +264,7 @@ def main():
     
     # Sell any coins that need to be sold
     for coin in coinsToSell:
-        sellCoin(APIToken, coin, FinalCoin, relevantMarkets)
+        sellCoin(APIToken, APISecret, coin, FinalCoin, relevantMarkets)
     # End for
 # End def
 
