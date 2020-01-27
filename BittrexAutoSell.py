@@ -140,22 +140,34 @@ def sellCoin(APIToken, APISecret, SourceCoin, DestCoin, Markets):
     Markets: List of market objects
     """
 
-    def _sell(API_Token, Market, Balance):
+    def _sell(API_Token, APISecret, Market, Balance):
         """
         This will post a "MARKET" order, which should be immediately filled at whatever market rate is.
         """
 
-        orderDetails = {
+        data = {
           "marketSymbol": Market["MarketName"],
           "direction": "SELL",
           "type": "MARKET",
           "quantity": Balance,
           "timeInForce": "FILL_OR_KILL",
         }
+        ts = arrow.now().timestamp * 1000 # Transforms ts from seconds into milliseconds
+        uri = "https://api.bittrex.com/v3/orders"
+        contentHash, signature = generateAuth(API_Token, APISecret, ts, str(data), uri, "POST")
 
-        #TODO: Flesh out the requests code to make this sell call
+        headers = {
+            "Api-Key": API_Token,
+            "Api-Timestamp": ts;
+            "Api-Content-Hash": contentHash;
+            "Api-Signature": signature
+        }
 
-        pass
+        r = requests.post(uri, data=data, headers=headers)
+        r.raise_for_status()
+
+        res = r.json()
+        return res["id"]
     # End def
 
     def _checkOrder(API_Token, APISecret, UUID):
@@ -182,11 +194,10 @@ def sellCoin(APIToken, APISecret, SourceCoin, DestCoin, Markets):
         if res["quantity"] != res['fillQuantity']:
             # Order didn't completely fill; need to signal that the rest should be sold somehow
             #TODO
-            return False
+            return True
         elif res['fillQuantity'] == 0.0:
             # Order was not filled at all; needs to be reattempted immediately
-            #TODO
-            pass
+            return False
         else:
             # Order filled completely
             #TODO include timestamp and market in this logging message
@@ -220,12 +231,12 @@ def sellCoin(APIToken, APISecret, SourceCoin, DestCoin, Markets):
     # End if
 
     for market in sellMarkets:
-        _sell(APIToken, market, SourceCoin["Available"])
-        #TODO: Figure out a way to confirm this trade went through
-        # or maybe just wait for a few seconds???
+        completed = False
+        while not completed:
+            uuid = _sell(APIToken, APISecret, market, SourceCoin["Available"])
+            completed = _checkOrder(APIToken, APISecret, uuid)
+        # End while
     # End for
-
-    pass
 # End def
 
 def generateAuth(APIToken, APISecret, Timestamp, ContentToHash, URI, HTTPMethod, Subaccount_ID=""):
