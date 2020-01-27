@@ -139,8 +139,8 @@ def generateAuth(APIToken, APISecret, Timestamp, ContentToHash, URI, HTTPMethod,
     # Signature requires:
     # Timestamp + URI + Method + hashedContent + Subaccount_ID
     msg = """%s%s%s%s%s""" % (Timestamp, URI, HTTPMethod, hashedContent, Subaccount_ID)
-
-    digest = hmac.new(APISecret, msg=msg, digestmod=hashlib.sha512).digest()
+    digest = hmac.new(APISecret.encode(), msg=msg.encode(), digestmod=hashlib.sha512).hexdigest()
+    
 # End def
 
 def main():
